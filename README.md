@@ -2,5 +2,5 @@
 
 ### Install Required Packages
 ```
-pip install opencv-python matplotlib ultralytics
+pip install opencv-python matplotlib ultralytics gTTS
 ```
