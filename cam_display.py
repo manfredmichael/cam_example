@@ -1,9 +1,7 @@
 import cv2
 import matplotlib.pyplot as plt
-import cvlib as cv
 import urllib.request
 import numpy as np
-from cvlib.object_detection import draw_bbox
 import concurrent.futures
 import time
 from ultralytics import YOLO
@@ -65,33 +63,6 @@ def run2():
         if key == ord('q'):
             break
 
-    cv2.destroyAllWindows()
-
-def run3():
-    cv2.namedWindow("detection", cv2.WINDOW_AUTOSIZE)
-    while True:
-        time.sleep(0.1)
-        # try:
-        print('detection - getting image')
-        img_resp=urllib.request.urlopen(url)
-        imgnp=np.array(bytearray(img_resp.read()),dtype=np.uint8)
-        im = cv2.imdecode(imgnp,-1)
-        print('detection - detecting..')
-        # time.sleep(2)
-
-        bbox, label, conf = cv.detect_common_objects(im)
-        # print('detection - drawing..')
-        # im = draw_bbox(im, bbox, label, conf)
-
-        print('detection - showing..')
-        cv2.imshow('detection',im)
-        # except Exception as e:
-        #     print(e)
-        #     continue
-        key=cv2.waitKey(5)
-        if key==ord('q'):
-            break
-            
     cv2.destroyAllWindows()
  
  
