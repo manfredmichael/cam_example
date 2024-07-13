@@ -8,14 +8,13 @@ from ultralytics import YOLO
 from gtts import gTTS
 from playsound import playsound
 import os
+import tempfile
+
 
 from http.client import IncompleteRead
  
 url='http://192.168.0.104/cam-hi.jpg'
 im=None
-
-if os.path.exists("output.mp3"):
-    os.remove("output.mp3")
 
 # Translation dictionary
 translations = {
@@ -156,13 +155,20 @@ def run2():
             if len(detected_objects)>0:
                 detected_objects = translate_labels(detected_objects)
                 text = ",".join(detected_objects) 
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+                    temp_audio_path = temp_audio.name
+                    tts = gTTS(text=text, lang='id')
+                    tts.save(temp_audio_path)
+                try:
+                    time.sleep(0.2)
+                    playsound(temp_audio_path)
+                except Exception as e:
+                    print(f"Error playing sound: {e}")
 
-                tts = gTTS(text=text, lang='id')
-                tts.save("output.mp3")
-                playsound("output.mp3")
-                os.remove("output.mp3")
-
-                time.sleep(2)
+                try:
+                    os.remove(temp_audio_path)
+                except Exception as e:
+                    print(f"Error deleting sound: {e}")
 
             print('detection - showing..')
             cv2.imshow('detection', im)
