@@ -9,30 +9,30 @@ from gtts import gTTS
 from playsound import playsound
 import os
 import tempfile
-
-
+import requests
 from http.client import IncompleteRead
- 
-url='http://192.168.0.104/cam-hi.jpg'
-im=None
 
- 
+base_url = 'http://192.168.0.104'
+cam_hi_url = f'{base_url}/cam-hi.jpg'
+ada_sampah_url = f'{base_url}/ada_sampah'
+im = None
+
 def run1():
     cv2.namedWindow("live transmission", cv2.WINDOW_AUTOSIZE)
     while True:
         time.sleep(0.1)
         try:
-            img_resp=urllib.request.urlopen(url)
-            imgnp=np.array(bytearray(img_resp.read()),dtype=np.uint8)
-            im = cv2.imdecode(imgnp,-1)
-    
-            cv2.imshow('live transmission',im)
+            img_resp = urllib.request.urlopen(cam_hi_url)
+            imgnp = np.array(bytearray(img_resp.read()), dtype=np.uint8)
+            im = cv2.imdecode(imgnp, -1)
+
+            cv2.imshow('live transmission', im)
         except IncompleteRead:
             continue
-        key=cv2.waitKey(5)
-        if key==ord('q'):
+        key = cv2.waitKey(5)
+        if key == ord('q'):
             break
-            
+
     cv2.destroyAllWindows()
 
 def run2():
@@ -43,7 +43,7 @@ def run2():
         time.sleep(0.1)
         try:
             print('detection - getting image')
-            img_resp = urllib.request.urlopen(url)
+            img_resp = urllib.request.urlopen(cam_hi_url)
             imgnp = np.array(bytearray(img_resp.read()), dtype=np.uint8)
             im = cv2.imdecode(imgnp, -1)
 
@@ -57,15 +57,13 @@ def run2():
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     conf = box.conf[0]
                     label = model.names[int(box.cls[0])]
-                    # if conf > 0.8:
                     detected_objects.append(label)
-
 
                     cv2.rectangle(im, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(im, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-            if len(detected_objects)>0:
-                text = "Ada sampah" 
+            if len(detected_objects) > 0:
+                text = "Ada sampah"
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
                     temp_audio_path = temp_audio.name
                     tts = gTTS(text=text, lang='id')
@@ -81,6 +79,13 @@ def run2():
                 except Exception as e:
                     print(f"Error deleting sound: {e}")
 
+                # Send GET request to /ada_sampah route
+                try:
+                    requests.get(ada_sampah_url)
+                    print("GET request sent to /ada_sampah")
+                except Exception as e:
+                    print(f"Error sending GET request: {e}")
+
             print('detection - showing..')
             cv2.imshow('detection', im)
         except Exception as e:
@@ -92,9 +97,7 @@ def run2():
             break
 
     cv2.destroyAllWindows()
- 
- 
- 
+
 if __name__ == '__main__':
     print("started")
     run2()
