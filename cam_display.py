@@ -9,11 +9,15 @@ from gtts import gTTS
 from playsound import playsound
 import os
 import tempfile
+import streamlit as st
+import numpy as np
+import pandas as pd
+from collections import Counter
 
 
 from http.client import IncompleteRead
  
-url='http://192.168.0.104/cam-hi.jpg'
+url='http://192.168.0.102/cam-hi.jpg'
 im=None
 
 # Translation dictionary
@@ -100,45 +104,44 @@ translations = {
     'toothbrush': 'sikat gigi'
 }
 
+
 # Function to translate detected objects
 def translate_labels(labels):
-    return [translations[label] if label in translations else label for label in labels]
+    return [[translations[label], position] if label in translations else label for label, position in labels]
 
- 
-def run1():
-    cv2.namedWindow("live transmission", cv2.WINDOW_AUTOSIZE)
-    while True:
-        time.sleep(0.1)
-        try:
-            img_resp=urllib.request.urlopen(url)
-            imgnp=np.array(bytearray(img_resp.read()),dtype=np.uint8)
-            im = cv2.imdecode(imgnp,-1)
+def determine_position(x1, x2, image_width):
+    # Calculate the midpoint of the bounding box
+    midpoint = (x1 + x2) / 2
+    # Define thresholds for "left", "middle", "right"
+    if midpoint < image_width / 4:
+        return "kiri"
+    elif midpoint < 3 * image_width / 4:
+        return "depan"
+    else:
+        return "kanan"
+
+def run_app():
+    st.title("Live Object Detection")
+
+    # Placeholder for live video feed
+    frame_placeholder = st.empty()
     
-            cv2.imshow('live transmission',im)
-        except IncompleteRead:
-            continue
-        key=cv2.waitKey(5)
-        if key==ord('q'):
-            break
-            
-    cv2.destroyAllWindows()
+    # Placeholder for pie chart
+    chart_placeholder = st.empty()
 
-def run2():
     model = YOLO('yolov8n.pt')  # Load YOLOv8 Nano model
+    detected_counts = Counter()
 
-    cv2.namedWindow("detection", cv2.WINDOW_AUTOSIZE)
     while True:
         time.sleep(0.1)
         try:
-            print('detection - getting image')
             img_resp = urllib.request.urlopen(url)
             imgnp = np.array(bytearray(img_resp.read()), dtype=np.uint8)
             im = cv2.imdecode(imgnp, -1)
 
-            print('detection - detecting..')
-            results = model(im)  # Detect objects
+            image_width = im.shape[1]  # Get the width of the image
 
-            print('detection - drawing..')
+            results = model(im)  # Detect objects
             detected_objects = []
             for result in results:
                 for box in result.boxes:
@@ -146,22 +149,31 @@ def run2():
                     conf = box.conf[0]
                     label = model.names[int(box.cls[0])]
 
-                    detected_objects.append(label)
 
+                    position = determine_position(x1, x2, image_width)
+
+                    detected_objects.append([label, position])
 
                     cv2.rectangle(im, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(im, f'{label} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-            if len(detected_objects)>0:
+            if len(detected_objects) > 0:
                 detected_objects = translate_labels(detected_objects)
-                text = ",".join(detected_objects) 
+                detected_counts.update([objects for objects, position in detected_objects])
+
+                object_text = [label + " di " + position for label, position in detected_objects]
+                object_text = list(set(object_text))
+                text = ",".join(object_text)
+                # TTS code is removed for brevity, can be included as needed
+
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
                     temp_audio_path = temp_audio.name
                     tts = gTTS(text=text, lang='id')
                     tts.save(temp_audio_path)
+
                 try:
-                    time.sleep(0.2)
                     playsound(temp_audio_path)
+                    time.sleep(0.5 + 0.5 * len(object_text))
                 except Exception as e:
                     print(f"Error playing sound: {e}")
 
@@ -170,23 +182,17 @@ def run2():
                 except Exception as e:
                     print(f"Error deleting sound: {e}")
 
-            print('detection - showing..')
-            cv2.imshow('detection', im)
+
+            frame_placeholder.image(im, channels="BGR", use_column_width=True)
+            data = pd.DataFrame.from_dict(detected_counts, orient='index', columns=['count'])
+            chart_placeholder.bar_chart(data)
+
         except Exception as e:
             print(e)
             continue
 
-        key = cv2.waitKey(5)
-        if key == ord('q'):
-            break
 
     cv2.destroyAllWindows()
- 
- 
- 
+
 if __name__ == '__main__':
-    print("started")
-    run2()
-    # with concurrent.futures.ProcessPoolExecutor() as executer:
-    #         f1= executer.submit(run1)
-    #         f2= executer.submit(run2)
+    run_app()
